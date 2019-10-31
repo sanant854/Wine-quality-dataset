@@ -1,0 +1,190 @@
+---
+title: "Wine Dataset"
+author: "Anant Sharma"
+date: "10/30/2019"
+output: html_document
+---
+
+PART I(White Wine)
+============
+
+## Reading the DATA
+  ```{r read}
+    white.url <- "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv"
+    data.white<-read.csv(white.url,header=TRUE,sep=';')
+    head(data.white)
+  ```
+
+## Exploring the DATA
+  ```{r exp,fig.height=10}
+    dim(data.white)
+    par(mfrow=c(4,3))
+    for(i in 1:11)
+    {
+      plot(data.white[,i],jitter(data.white[,"quality"]),col="red",xlab=names(data.white)[i],ylab="quality")
+      abline(lm(data.white[,"quality"]~data.white[,i]))
+    }
+  ```
+  
+From the above plots we conclude that sulphates,free.sulfur.dioxide and pH do not have much relation with the wine quality.We plot a correlation plot to be sure below.
+In the above graph an outlier can be seen in residual sugar graph so removing it.
+
+  ```{r out}
+    data.white<-data.white[-which.max(data.white$residual.sugar),]
+  ```
+  
+
+  ```{r corr}
+    library(corrplot)
+    corr.white<-cor(data.white)
+    corrplot(corr.white,method="number")
+  ```
+  
+Weak relationships between quality and citric.acid, free.sulfur.dioxide, and sulphates are seen in the above correlation plot as well.
+
+
+## Model building 
+
+First we would convert the quality variable to factor and then we split data and then build model over it.
+
+  ```{r model}
+    data.white$quality<-factor(data.white$quality)
+    library(caret)
+    intrain<-createDataPartition(y=data.white$quality,p=0.7,list=FALSE)
+    train.white<-data.white[intrain,]
+    test.white<-data.white[-intrain,]
+  ```
+  
+I would test three models knn, random forest and SVM(support vector machine).
+
+## 1) KNN
+
+  ```{r knn,cache=TRUE}
+    tr.ctrl<-trainControl(method="repeatedcv",number=2,repeats=2)
+    knn.grid<-expand.grid(distance=c(1,2),kmax=c(3,5,7,9,11),kernel=c("rectangular","gaussian","cos"))
+    knn.fit<-train(quality~.,data=train.white,trcontrol=tr.ctrl,tuneGrid=knn.grid,preProcess=c("center","scale"),method="kknn")
+    confusionMatrix(predict(knn.fit,test.white),test.white$quality)
+  ```  
+  ```{r plotknn}
+    plot(knn.fit)
+    knn.fit$bestTune
+  ```
+So we can see we get the best model for a rectangular kernel with distance 1 which represents manhattan distance and kmax=3.And also we get an accuracy of 63.46%.
+
+## 2) Random forest
+  ```{r rf,cache=TRUE}
+    rf.grid<-expand.grid(mtry=1:11)
+    rf.fit<-train(quality~.,data=train.white,method="rf",trcontrol=tr.ctrl,tuneGrid=rf.grid,preProcess=c("center","scale"))
+    confusionMatrix(predict(rf.fit,test.white),test.white$quality)
+  ```  
+  ```{r rfplot}
+    plot(rf.fit)
+    rf.fit$bestTune
+  ```  
+Here we get an accuracy of 68.44% and also we can see that for mtry=1 we have maximum accuracy i.e for univariate tree.
+  
+## 3) Support vector machine(SVM)
+  ```{r svm,cache=TRUE}
+    svm.grid <- expand.grid(C = 2^(1:3), sigma = seq(0.25, 2, length = 8))
+    svm.fit<-train(quality~.,data=train.white,method="svmRadial",trcontrol=tr.ctrl,tuneGrid=svm.grid,preProcess = c("center", "scale"))
+    confusionMatrix(predict(svm.fit,test.white),test.white$quality)
+  ```  
+  ```{r svmplot}
+    plot(svm.fit)
+    svm.fit$bestTune
+  ```
+We get an accuracy of 64.55% with svm and also the best values for best accuracy are sigma=1 and C=4.
+
+
+Since random forest gives the best accuracy and we choose it as our model.
+
+
+PART II(Red Wine)
+===================
+
+## Reading the data
+  ```{r read2}
+    red.url<-"https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv"
+    data.red<-read.csv(red.url,header=TRUE,sep=';')
+    head(data.red)
+  ```
+  
+## Exploring the data
+  
+  ```{r exp2,fig.height=10}
+    dim(data.red)
+    par(mfrow=c(4,3))
+    for(i in 1:11)
+    {
+      plot(data.red[,i],jitter(data.red[,"quality"]),col="red",xlab=names(data.red)[i],ylab="quality")
+      abline(lm(data.red[,"quality"]~data.red[,i]))
+    }
+  ```
+
+
+From the above plots we conclude that free.sulfur.dioxide and residual.sugar do not have much relation with the wine quality.We plot a correlation plot to be sure below.  
+
+  ```{r corr2}
+    library(corrplot)
+    corr.red<-cor(data.red)
+    corrplot(corr.red,method="number")
+  ```
+  
+Weak relationships between quality and residual.sugar, free.sulfur.dioxide, and PH are seen in the above correlation plot as well.  
+
+
+## Model Building
+
+First we would convert the quality variable to factor and then we split data and then build model over it.
+
+  ```{r model2}
+    data.red$quality<-factor(data.red$quality)
+    library(caret)
+    intrain<-createDataPartition(y=data.red$quality,p=0.7,list=FALSE)
+    train.red<-data.red[intrain,]
+    test.red<-data.red[-intrain,]
+  ```
+  
+I would test three models knn, random forest and SVM(support vector machine).
+
+
+## 1) KNN
+
+  ```{r knn2,cache=TRUE}
+    tr.ctrl<-trainControl(method="repeatedcv",number=2,repeats=2)
+    knn.grid<-expand.grid(distance=c(1,2),kmax=c(3,5,7,9,11),kernel=c("rectangular","gaussian","cos"))
+    knn.fit<-train(quality~.,data=train.red,trcontrol=tr.ctrl,tuneGrid=knn.grid,preProcess=c("center","scale"),method="kknn")
+    confusionMatrix(predict(knn.fit,test.red),test.red$quality)
+  ```  
+  ```{r plotknn2}
+    plot(knn.fit)
+    knn.fit$bestTune
+  ```
+So we can see we get the best model for a rectangular kernel with distance 2 which represents euclidean distance and kmax=3.And also we get an accuracy of 59.96%.
+
+
+
+## 2) Random forest
+  ```{r rf2,cache=TRUE}
+    rf.grid<-expand.grid(mtry=1:11)
+    rf.fit<-train(quality~.,data=train.red,method="rf",trcontrol=tr.ctrl,tuneGrid=rf.grid,preProcess=c("center","scale"))
+    confusionMatrix(predict(rf.fit,test.red),test.red$quality)
+  ```  
+  ```{r rfplot2}
+    plot(rf.fit)
+    rf.fit$bestTune
+  ```  
+Here we get an accuracy of 70.02% and also we can see that for mtry=1 we have maximum accuracy i.e for univariate tree.
+
+
+## 3) Support vector machine(SVM)
+  ```{r svm2,cache=TRUE}
+    svm.grid <- expand.grid(C = 2^(1:3), sigma = seq(0.25, 2, length = 8))
+    svm.fit<-train(quality~.,data=train.red,method="svmRadial",trcontrol=tr.ctrl,tuneGrid=svm.grid,preProcess = c("center", "scale"))
+    confusionMatrix(predict(svm.fit,test.red),test.red$quality)
+  ```  
+  ```{r svmplot2}
+    plot(svm.fit)
+    svm.fit$bestTune
+  ```
+We get an accuracy of 64.55% with svm and also the best values for best accuracy are sigma=1 and C=4.    
